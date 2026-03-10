@@ -266,12 +266,16 @@ def update(X_pre, P_pre, measure, measure_cov, k):
     Q = np.kron(np.eye(k), measure_cov)
     K = P_pre @ H.T @ np.linalg.inv(H @ P_pre @ H.T + Q)
 
+    # Difference between predicted and measured (y)
+    y = measure - z_pre
+    y[0] = warp2pi(y[0])
+
     # Updated state mean (X)
-    X = X_pre + K @ (measure - z_pre)
+    X = X_pre + K @ y
     X[2] = warp2pi(X[2])
 
     # Updated state covariance (P)
-    P = np.eye(3 + 2 * k) - K @ H
+    P = (np.eye(3 + 2 * k) - K @ H) @ P_pre
 
     return X, P
 
@@ -290,6 +294,23 @@ def evaluate(X, P, k):
     plt.scatter(l_true[0::2], l_true[1::2])
     plt.draw()
     plt.waitforbuttonpress(0)
+
+    # Euclidean distances
+    dist_euclidean = np.sqrt((X[3::2].flatten() - l_true[0::2])**2 + (X[4::2].flatten() - l_true[1::2])**2)
+
+    # Mahalanobis distance
+    dist_mahalanobis = np.zeros(k)
+    for i in range(k):
+        l_est_i = X[3 + 2 * i : 3 + 2 * i + 2].flatten()
+        l_true_i = l_true[2 * i : 2 * i + 2]
+        cov_i = P[3 + 2 * i : 3 + 2 * i + 2, 3 + 2 * i : 3 + 2 * i + 2]
+        diff = (l_est_i - l_true_i)
+        dist_mahalanobis[i] = np.sqrt(diff.T @ np.linalg.inv(cov_i) @ diff).item()
+
+    for i in range(k):
+        print(f"Landmark {i}")
+        print(f"\tEuclidean distance: {dist_euclidean[i]:.5f}")
+        print(f"\tMahalanobis distance: {dist_mahalanobis[i]:.5f}")
 
 
 def main():
